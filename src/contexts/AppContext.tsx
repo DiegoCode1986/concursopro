@@ -1,15 +1,15 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import { User, Folder, Question, StudySession } from '../types';
+import { Folder, Question, StudySession } from '../types';
+import { useAuth } from './AuthContext';
+import { supabase } from '../lib/supabase';
 
 interface AppState {
-  currentUser: User | null;
   folders: Folder[];
   questions: Question[];
   studySession: StudySession | null;
 }
 
 type AppAction = 
-  | { type: 'SET_USER'; payload: User | null }
   | { type: 'SET_FOLDERS'; payload: Folder[] }
   | { type: 'ADD_FOLDER'; payload: Folder }
   | { type: 'UPDATE_FOLDER'; payload: Folder }
@@ -19,10 +19,10 @@ type AppAction =
   | { type: 'UPDATE_QUESTION'; payload: Question }
   | { type: 'DELETE_QUESTION'; payload: string }
   | { type: 'SET_STUDY_SESSION'; payload: StudySession | null }
-  | { type: 'UPDATE_STUDY_SESSION'; payload: Partial<StudySession> };
+  | { type: 'UPDATE_STUDY_SESSION'; payload: Partial<StudySession> }
+  | { type: 'RESET_STATE' };
 
 const initialState: AppState = {
-  currentUser: null,
   folders: [],
   questions: [],
   studySession: null,
@@ -30,8 +30,6 @@ const initialState: AppState = {
 
 const appReducer = (state: AppState, action: AppAction): AppState => {
   switch (action.type) {
-    case 'SET_USER':
-      return { ...state, currentUser: action.payload };
     case 'SET_FOLDERS':
       return { ...state, folders: action.payload };
     case 'ADD_FOLDER':
@@ -72,6 +70,8 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
         ...state,
         studySession: state.studySession ? { ...state.studySession, ...action.payload } : null,
       };
+    case 'RESET_STATE':
+      return initialState;
     default:
       return state;
   }
@@ -84,31 +84,84 @@ const AppContext = createContext<{
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(appReducer, initialState);
+  const { user } = useAuth();
 
-  // Load data from localStorage on mount
+  // Load user data when user changes
   useEffect(() => {
-    const savedUser = localStorage.getItem('currentUser');
-    if (savedUser) {
-      const user = JSON.parse(savedUser);
-      dispatch({ type: 'SET_USER', payload: user });
-      
-      // Load user's folders and questions
-      const userFolders = JSON.parse(localStorage.getItem(`folders_${user.id}`) || '[]');
-      const userQuestions = JSON.parse(localStorage.getItem(`questions_${user.id}`) || '[]');
-      
-      dispatch({ type: 'SET_FOLDERS', payload: userFolders });
-      dispatch({ type: 'SET_QUESTIONS', payload: userQuestions });
+    if (user) {
+      loadUserData();
+    } else {
+      dispatch({ type: 'RESET_STATE' });
     }
-  }, []);
+  }, [user]);
 
-  // Save data to localStorage when state changes
-  useEffect(() => {
-    if (state.currentUser) {
-      localStorage.setItem('currentUser', JSON.stringify(state.currentUser));
-      localStorage.setItem(`folders_${state.currentUser.id}`, JSON.stringify(state.folders));
-      localStorage.setItem(`questions_${state.currentUser.id}`, JSON.stringify(state.questions));
+  const loadUserData = async () => {
+    if (!user) return;
+
+    try {
+      // Load folders from Supabase
+      const { data: folders, error: foldersError } = await supabase
+        .from('folders')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (foldersError) throw foldersError;
+
+      // Load questions from Supabase
+      const { data: questions, error: questionsError } = await supabase
+        .from('questions')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (questionsError) throw questionsError;
+
+      // Transform data to match our types
+      const transformedFolders: Folder[] = folders?.map(folder => ({
+        id: folder.id,
+        name: folder.name,
+        description: folder.description,
+        createdAt: folder.created_at,
+        userId: folder.user_id,
+      })) || [];
+
+      const transformedQuestions: Question[] = questions?.map(question => ({
+        id: question.id,
+        folderId: question.folder_id,
+        userId: question.user_id,
+        title: question.title,
+        type: question.type,
+        options: question.options,
+        correctAnswer: question.correct_answer,
+        correctBoolean: question.correct_boolean,
+        explanation: question.explanation,
+        createdAt: question.created_at,
+        updatedAt: question.updated_at,
+      })) || [];
+
+      dispatch({ type: 'SET_FOLDERS', payload: transformedFolders });
+      dispatch({ type: 'SET_QUESTIONS', payload: transformedQuestions });
+    } catch (error) {
+      console.error('Error loading user data:', error);
     }
-  }, [state.currentUser, state.folders, state.questions]);
+  };
+
+  // Save data to Supabase when state changes
+  useEffect(() => {
+    if (!user) return;
+
+    const saveData = async () => {
+      try {
+        // This will be handled by individual CRUD operations
+        // rather than bulk saves to avoid conflicts
+      } catch (error) {
+        console.error('Error saving data:', error);
+      }
+    };
+
+    saveData();
+  }, [state.folders, state.questions, user]);
 
   return (
     <AppContext.Provider value={{ state, dispatch }}>

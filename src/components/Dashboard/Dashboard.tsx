@@ -1,57 +1,126 @@
 import React, { useState } from 'react';
 import { Plus, LogOut, Search, Folder as FolderIcon } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 import { useApp } from '../../contexts/AppContext';
 import { Folder } from '../../types';
+import { supabase } from '../../lib/supabase';
 import FolderCard from './FolderCard';
 import Modal from '../UI/Modal';
 import Button from '../UI/Button';
 
 const Dashboard: React.FC<{ onOpenFolder: (folderId: string) => void }> = ({ onOpenFolder }) => {
+  const { user, signOut } = useAuth();
   const { state, dispatch } = useApp();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(false);
   
   const [formData, setFormData] = useState({
     name: '',
     description: '',
   });
 
-  const handleCreateFolder = (e: React.FormEvent) => {
+  const handleCreateFolder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim()) return;
+    if (!formData.name.trim() || !user) return;
 
-    const newFolder: Folder = {
-      id: Date.now().toString(),
-      name: formData.name.trim(),
-      description: formData.description.trim(),
-      createdAt: new Date().toISOString(),
-      userId: state.currentUser!.id,
-    };
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('folders')
+        .insert([
+          {
+            name: formData.name.trim(),
+            description: formData.description.trim() || null,
+            user_id: user.id,
+          }
+        ])
+        .select()
+        .single();
 
-    dispatch({ type: 'ADD_FOLDER', payload: newFolder });
-    setFormData({ name: '', description: '' });
-    setIsCreateModalOpen(false);
+      if (error) throw error;
+
+      const newFolder: Folder = {
+        id: data.id,
+        name: data.name,
+        description: data.description,
+        createdAt: data.created_at,
+        userId: data.user_id,
+      };
+
+      dispatch({ type: 'ADD_FOLDER', payload: newFolder });
+      setFormData({ name: '', description: '' });
+      setIsCreateModalOpen(false);
+    } catch (error: any) {
+      console.error('Error creating folder:', error);
+      alert('Erro ao criar matéria: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleEditFolder = (e: React.FormEvent) => {
+  const handleEditFolder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingFolder || !formData.name.trim()) return;
 
-    const updatedFolder: Folder = {
-      ...editingFolder,
-      name: formData.name.trim(),
-      description: formData.description.trim(),
-    };
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('folders')
+        .update({
+          name: formData.name.trim(),
+          description: formData.description.trim() || null,
+        })
+        .eq('id', editingFolder.id)
+        .select()
+        .single();
 
-    dispatch({ type: 'UPDATE_FOLDER', payload: updatedFolder });
-    setFormData({ name: '', description: '' });
-    setEditingFolder(null);
+      if (error) throw error;
+
+      const updatedFolder: Folder = {
+        ...editingFolder,
+        name: data.name,
+        description: data.description,
+      };
+
+      dispatch({ type: 'UPDATE_FOLDER', payload: updatedFolder });
+      setFormData({ name: '', description: '' });
+      setEditingFolder(null);
+    } catch (error: any) {
+      console.error('Error updating folder:', error);
+      alert('Erro ao atualizar matéria: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleDeleteFolder = (folderId: string) => {
-    if (confirm('Tem certeza que deseja excluir esta pasta? Todas as questões serão perdidas.')) {
+  const handleDeleteFolder = async (folderId: string) => {
+    if (!confirm('Tem certeza que deseja excluir esta pasta? Todas as questões serão perdidas.')) {
+      return;
+    }
+
+    try {
+      // Delete questions first
+      const { error: questionsError } = await supabase
+        .from('questions')
+        .delete()
+        .eq('folder_id', folderId);
+
+      if (questionsError) throw questionsError;
+
+      // Delete folder
+      const { error: folderError } = await supabase
+        .from('folders')
+        .delete()
+        .eq('id', folderId);
+
+      if (folderError) throw folderError;
+
       dispatch({ type: 'DELETE_FOLDER', payload: folderId });
+    } catch (error: any) {
+      console.error('Error deleting folder:', error);
+      alert('Erro ao excluir matéria: ' + error.message);
     }
   };
 
@@ -71,9 +140,12 @@ const Dashboard: React.FC<{ onOpenFolder: (folderId: string) => void }> = ({ onO
     setFormData({ name: '', description: '' });
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('currentUser');
-    dispatch({ type: 'SET_USER', payload: null });
+  const handleLogout = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
   };
 
   const filteredFolders = state.folders.filter(folder =>
@@ -96,7 +168,7 @@ const Dashboard: React.FC<{ onOpenFolder: (folderId: string) => void }> = ({ onO
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">ConCurso Pro</h1>
-                <p className="text-sm text-gray-600">Olá, {state.currentUser?.username}!</p>
+                <p className="text-sm text-gray-600">Olá, {user?.name}!</p>
               </div>
             </div>
             
@@ -200,8 +272,8 @@ const Dashboard: React.FC<{ onOpenFolder: (folderId: string) => void }> = ({ onO
             <Button type="button" onClick={closeModals} variant="outline" className="flex-1">
               Cancelar
             </Button>
-            <Button type="submit" className="flex-1">
-              Criar
+            <Button type="submit" disabled={loading} className="flex-1">
+              {loading ? 'Criando...' : 'Criar'}
             </Button>
           </div>
         </form>
@@ -246,8 +318,8 @@ const Dashboard: React.FC<{ onOpenFolder: (folderId: string) => void }> = ({ onO
             <Button type="button" onClick={closeModals} variant="outline" className="flex-1">
               Cancelar
             </Button>
-            <Button type="submit" className="flex-1">
-              Salvar
+            <Button type="submit" disabled={loading} className="flex-1">
+              {loading ? 'Salvando...' : 'Salvar'}
             </Button>
           </div>
         </form>

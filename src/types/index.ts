@@ -1,6 +1,7 @@
 export interface User {
   id: string;
-  username: string;
+  email: string;
+  name: string;
   createdAt: string;
 }
 
@@ -38,4 +39,10 @@ export interface StudySession {
   remainingTime: number;
   isActive: boolean;
   isPaused: boolean;
+}
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
 }
