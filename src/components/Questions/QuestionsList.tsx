@@ -1,0 +1,276 @@
+import React, { useState } from 'react';
+import { ArrowLeft, Plus, Search, Filter, BookOpen, Target, BarChart3 } from 'lucide-react';
+import { useApp } from '../../contexts/AppContext';
+import { Question } from '../../types';
+import InteractiveQuestionCard from './InteractiveQuestionCard';
+import QuestionForm from './QuestionForm';
+import StudyTimer from '../Timer/StudyTimer';
+import Modal from '../UI/Modal';
+import Button from '../UI/Button';
+
+interface QuestionsListProps {
+  folderId: string;
+  onBack: () => void;
+}
+
+const QuestionsList: React.FC<QuestionsListProps> = ({ folderId, onBack }) => {
+  const { state, dispatch } = useApp();
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState<'all' | 'multiple' | 'boolean'>('all');
+  const [studyMode, setStudyMode] = useState<'practice' | 'review'>('practice');
+
+  const folder = state.folders.find(f => f.id === folderId);
+  const questions = state.questions.filter(q => q.folderId === folderId);
+
+  const handleCreateQuestion = (questionData: Omit<Question, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const newQuestion: Question = {
+      ...questionData,
+      id: Date.now().toString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    dispatch({ type: 'ADD_QUESTION', payload: newQuestion });
+    setIsCreateModalOpen(false);
+  };
+
+  const handleEditQuestion = (questionData: Omit<Question, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (!editingQuestion) return;
+
+    const updatedQuestion: Question = {
+      ...editingQuestion,
+      ...questionData,
+      updatedAt: new Date().toISOString(),
+    };
+
+    dispatch({ type: 'UPDATE_QUESTION', payload: updatedQuestion });
+    setEditingQuestion(null);
+  };
+
+  const handleDeleteQuestion = (questionId: string) => {
+    if (confirm('Tem certeza que deseja excluir esta questão?')) {
+      dispatch({ type: 'DELETE_QUESTION', payload: questionId });
+    }
+  };
+
+  const filteredQuestions = questions.filter(question => {
+    const matchesSearch = question.title.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesFilter = filterType === 'all' || question.type === filterType;
+    return matchesSearch && matchesFilter;
+  });
+
+  const getTypeCount = (type: 'multiple' | 'boolean') => {
+    return questions.filter(q => q.type === type).length;
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center gap-4">
+              <Button onClick={onBack} variant="outline" icon={ArrowLeft} size="sm">
+                Voltar
+              </Button>
+              <div className="flex items-center gap-3">
+                <div className="bg-blue-100 rounded-lg p-2">
+                  <BookOpen className="w-6 h-6 text-blue-600" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-gray-900">{folder?.name}</h1>
+                  <p className="text-sm text-gray-600">{questions.length} questões</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <StudyTimer folderId={folderId} />
+              <Button onClick={() => setIsCreateModalOpen(true)} icon={Plus} size="sm">
+                Nova Questão
+              </Button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Study Mode Toggle */}
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">Modo de Estudo</h2>
+            <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setStudyMode('practice')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                  studyMode === 'practice'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Target className="w-4 h-4 inline-block mr-2" />
+                Praticar
+              </button>
+              <button
+                onClick={() => setStudyMode('review')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                  studyMode === 'review'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <BarChart3 className="w-4 h-4 inline-block mr-2" />
+                Revisar
+              </button>
+            </div>
+          </div>
+          
+          <p className="text-sm text-gray-600">
+            {studyMode === 'practice' 
+              ? 'Responda às questões e teste seus conhecimentos antes de ver o gabarito.'
+              : 'Visualize todas as questões com suas respostas para revisão rápida.'
+            }
+          </p>
+        </div>
+
+        {/* Search and Filters */}
+        <div className="flex flex-col lg:flex-row gap-4 mb-8">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Buscar questões..."
+              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            />
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <Filter className="w-5 h-5 text-gray-400" />
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value as 'all' | 'multiple' | 'boolean')}
+              className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white"
+            >
+              <option value="all">Todos os tipos ({questions.length})</option>
+              <option value="multiple">Múltipla escolha ({getTypeCount('multiple')})</option>
+              <option value="boolean">Verdadeiro/Falso ({getTypeCount('boolean')})</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="flex items-center gap-3">
+              <div className="bg-blue-100 rounded-lg p-3">
+                <BookOpen className="w-6 h-6 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total de Questões</p>
+                <p className="text-2xl font-bold text-gray-900">{questions.length}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="flex items-center gap-3">
+              <div className="bg-green-100 rounded-lg p-3">
+                <div className="w-6 h-6 text-green-600 font-bold flex items-center justify-center">V/F</div>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-600">Verdadeiro/Falso</p>
+                <p className="text-2xl font-bold text-gray-900">{getTypeCount('boolean')}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="flex items-center gap-3">
+              <div className="bg-purple-100 rounded-lg p-3">
+                <div className="w-6 h-6 text-purple-600 font-bold flex items-center justify-center">A-E</div>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-600">Múltipla Escolha</p>
+                <p className="text-2xl font-bold text-gray-900">{getTypeCount('multiple')}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Questions List */}
+        {filteredQuestions.length === 0 ? (
+          <div className="text-center py-12">
+            <BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              {searchTerm || filterType !== 'all' 
+                ? 'Nenhuma questão encontrada' 
+                : 'Nenhuma questão criada'}
+            </h3>
+            <p className="text-gray-600 mb-6">
+              {searchTerm || filterType !== 'all'
+                ? 'Tente ajustar os filtros de busca'
+                : 'Crie sua primeira questão para começar a estudar'}
+            </p>
+            {!searchTerm && filterType === 'all' && (
+              <Button onClick={() => setIsCreateModalOpen(true)} icon={Plus}>
+                Criar primeira questão
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-6">
+            {filteredQuestions.map((question) => (
+              <InteractiveQuestionCard
+                key={question.id}
+                question={question}
+                onEdit={setEditingQuestion}
+                onDelete={handleDeleteQuestion}
+                showAnswers={studyMode === 'review'}
+              />
+            ))}
+          </div>
+        )}
+      </main>
+
+      {/* Create Modal */}
+      <Modal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        title="Nova Questão"
+        size="xl"
+      >
+        <QuestionForm
+          folderId={folderId}
+          userId={state.currentUser!.id}
+          onSubmit={handleCreateQuestion}
+          onCancel={() => setIsCreateModalOpen(false)}
+        />
+      </Modal>
+
+      {/* Edit Modal */}
+      <Modal
+        isOpen={!!editingQuestion}
+        onClose={() => setEditingQuestion(null)}
+        title="Editar Questão"
+        size="xl"
+      >
+        {editingQuestion && (
+          <QuestionForm
+            question={editingQuestion}
+            folderId={folderId}
+            userId={state.currentUser!.id}
+            onSubmit={handleEditQuestion}
+            onCancel={() => setEditingQuestion(null)}
+          />
+        )}
+      </Modal>
+    </div>
+  );
+};
+
+export default QuestionsList;
