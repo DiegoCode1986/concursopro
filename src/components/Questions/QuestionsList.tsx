@@ -3,6 +3,7 @@ import { ArrowLeft, Plus, Search, Filter, BookOpen, Target, BarChart3 } from 'lu
 import { useApp } from '../../contexts/AppContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Question } from '../../types';
+import { supabase } from '../../lib/supabase';
 import InteractiveQuestionCard from './InteractiveQuestionCard';
 import QuestionForm from './QuestionForm';
 import StudyTimer from '../Timer/StudyTimer';
@@ -22,38 +23,118 @@ const QuestionsList: React.FC<QuestionsListProps> = ({ folderId, onBack }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'multiple' | 'boolean'>('all');
   const [studyMode, setStudyMode] = useState<'practice' | 'review'>('practice');
+  const [loading, setLoading] = useState(false);
 
   const folder = state.folders.find(f => f.id === folderId);
   const questions = state.questions.filter(q => q.folderId === folderId);
 
-  const handleCreateQuestion = (questionData: Omit<Question, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newQuestion: Question = {
-      ...questionData,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+  const handleCreateQuestion = async (questionData: Omit<Question, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (!user) return;
 
-    dispatch({ type: 'ADD_QUESTION', payload: newQuestion });
-    setIsCreateModalOpen(false);
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('questions')
+        .insert([
+          {
+            folder_id: questionData.folderId,
+            user_id: questionData.userId,
+            title: questionData.title,
+            type: questionData.type,
+            options: questionData.options || null,
+            correct_answer: questionData.correctAnswer || null,
+            correct_boolean: questionData.correctBoolean ?? null,
+            explanation: questionData.explanation || null,
+          }
+        ])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const newQuestion: Question = {
+        id: data.id,
+        folderId: data.folder_id,
+        userId: data.user_id,
+        title: data.title,
+        type: data.type,
+        options: data.options,
+        correctAnswer: data.correct_answer,
+        correctBoolean: data.correct_boolean,
+        explanation: data.explanation,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+      };
+
+      dispatch({ type: 'ADD_QUESTION', payload: newQuestion });
+      setIsCreateModalOpen(false);
+    } catch (error: any) {
+      console.error('Error creating question:', error);
+      alert('Erro ao criar questão: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleEditQuestion = (questionData: Omit<Question, 'id' | 'createdAt' | 'updatedAt'>) => {
-    if (!editingQuestion) return;
+  const handleEditQuestion = async (questionData: Omit<Question, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (!editingQuestion || !user) return;
 
-    const updatedQuestion: Question = {
-      ...editingQuestion,
-      ...questionData,
-      updatedAt: new Date().toISOString(),
-    };
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('questions')
+        .update({
+          title: questionData.title,
+          type: questionData.type,
+          options: questionData.options || null,
+          correct_answer: questionData.correctAnswer || null,
+          correct_boolean: questionData.correctBoolean ?? null,
+          explanation: questionData.explanation || null,
+        })
+        .eq('id', editingQuestion.id)
+        .select()
+        .single();
 
-    dispatch({ type: 'UPDATE_QUESTION', payload: updatedQuestion });
-    setEditingQuestion(null);
+      if (error) throw error;
+
+      const updatedQuestion: Question = {
+        ...editingQuestion,
+        title: data.title,
+        type: data.type,
+        options: data.options,
+        correctAnswer: data.correct_answer,
+        correctBoolean: data.correct_boolean,
+        explanation: data.explanation,
+        updatedAt: data.updated_at,
+      };
+
+      dispatch({ type: 'UPDATE_QUESTION', payload: updatedQuestion });
+      setEditingQuestion(null);
+    } catch (error: any) {
+      console.error('Error updating question:', error);
+      alert('Erro ao atualizar questão: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleDeleteQuestion = (questionId: string) => {
-    if (confirm('Tem certeza que deseja excluir esta questão?')) {
+  const handleDeleteQuestion = async (questionId: string) => {
+    if (!confirm('Tem certeza que deseja excluir esta questão?')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('questions')
+        .delete()
+        .eq('id', questionId);
+
+      if (error) throw error;
+
       dispatch({ type: 'DELETE_QUESTION', payload: questionId });
+    } catch (error: any) {
+      console.error('Error deleting question:', error);
+      alert('Erro ao excluir questão: ' + error.message);
     }
   };
 
@@ -94,7 +175,12 @@ const QuestionsList: React.FC<QuestionsListProps> = ({ folderId, onBack }) => {
             
             <div className="flex items-center gap-3">
               <StudyTimer folderId={folderId} />
-              <Button onClick={() => setIsCreateModalOpen(true)} icon={Plus} size="sm">
+              <Button 
+                onClick={() => setIsCreateModalOpen(true)} 
+                icon={Plus} 
+                size="sm"
+                disabled={loading}
+              >
                 Nova Questão
               </Button>
             </div>
@@ -223,7 +309,11 @@ const QuestionsList: React.FC<QuestionsListProps> = ({ folderId, onBack }) => {
                 : 'Crie sua primeira questão para começar a estudar'}
             </p>
             {!searchTerm && filterType === 'all' && (
-              <Button onClick={() => setIsCreateModalOpen(true)} icon={Plus}>
+              <Button 
+                onClick={() => setIsCreateModalOpen(true)} 
+                icon={Plus}
+                disabled={loading}
+              >
                 Criar primeira questão
               </Button>
             )}
