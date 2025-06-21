@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Plus, Search, Filter, BookOpen, Target, BarChart3 } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { Question } from '../../types';
 import InteractiveQuestionCard from './InteractiveQuestionCard';
 import QuestionForm from './QuestionForm';
@@ -15,6 +16,7 @@ interface QuestionsListProps {
 
 const QuestionsList: React.FC<QuestionsListProps> = ({ folderId, onBack }) => {
   const { state, dispatch } = useApp();
+  const { user } = useAuth();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -64,6 +66,10 @@ const QuestionsList: React.FC<QuestionsListProps> = ({ folderId, onBack }) => {
   const getTypeCount = (type: 'multiple' | 'boolean') => {
     return questions.filter(q => q.type === type).length;
   };
+
+  if (!user) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -246,7 +252,7 @@ const QuestionsList: React.FC<QuestionsListProps> = ({ folderId, onBack }) => {
       >
         <QuestionForm
           folderId={folderId}
-          userId={state.currentUser!.id}
+          userId={user.id}
           onSubmit={handleCreateQuestion}
           onCancel={() => setIsCreateModalOpen(false)}
         />
@@ -263,7 +269,7 @@ const QuestionsList: React.FC<QuestionsListProps> = ({ folderId, onBack }) => {
           <QuestionForm
             question={editingQuestion}
             folderId={folderId}
-            userId={state.currentUser!.id}
+            userId={user.id}
             onSubmit={handleEditQuestion}
             onCancel={() => setEditingQuestion(null)}
           />
