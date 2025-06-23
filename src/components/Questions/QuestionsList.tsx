@@ -173,8 +173,35 @@ const QuestionsList: React.FC<QuestionsListProps> = ({ folderId, onBack }) => {
               </div>
             </div>
             
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
+              {/* Study Mode Toggle */}
+              <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => setStudyMode('practice')}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                    studyMode === 'practice'
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <Target className="w-4 h-4 inline-block mr-1" />
+                  Praticar
+                </button>
+                <button
+                  onClick={() => setStudyMode('review')}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                    studyMode === 'review'
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <BarChart3 className="w-4 h-4 inline-block mr-1" />
+                  Revisar
+                </button>
+              </div>
+              
               <StudyTimer folderId={folderId} />
+              
               <Button 
                 onClick={() => setIsCreateModalOpen(true)} 
                 icon={Plus} 
@@ -190,44 +217,6 @@ const QuestionsList: React.FC<QuestionsListProps> = ({ folderId, onBack }) => {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Study Mode Toggle */}
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Modo de Estudo</h2>
-            <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
-              <button
-                onClick={() => setStudyMode('practice')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                  studyMode === 'practice'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <Target className="w-4 h-4 inline-block mr-2" />
-                Praticar
-              </button>
-              <button
-                onClick={() => setStudyMode('review')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                  studyMode === 'review'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <BarChart3 className="w-4 h-4 inline-block mr-2" />
-                Revisar
-              </button>
-            </div>
-          </div>
-          
-          <p className="text-sm text-gray-600">
-            {studyMode === 'practice' 
-              ? 'Responda às questões e teste seus conhecimentos antes de ver o gabarito.'
-              : 'Visualize todas as questões com suas respostas para revisão rápida.'
-            }
-          </p>
-        </div>
-
         {/* Search and Filters */}
         <div className="flex flex-col lg:flex-row gap-4 mb-8">
           <div className="flex-1 relative">
@@ -292,6 +281,17 @@ const QuestionsList: React.FC<QuestionsListProps> = ({ folderId, onBack }) => {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Study Mode Info */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
+          <p className="text-sm text-blue-800">
+            <strong>Modo {studyMode === 'practice' ? 'Praticar' : 'Revisar'}:</strong>{' '}
+            {studyMode === 'practice' 
+              ? 'Responda às questões e teste seus conhecimentos antes de ver o gabarito.'
+              : 'Visualize todas as questões com suas respostas para revisão rápida.'
+            }
+          </p>
         </div>
 
         {/* Questions List */}

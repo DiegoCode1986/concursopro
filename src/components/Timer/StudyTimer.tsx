@@ -151,7 +151,7 @@ const StudyTimer: React.FC<StudyTimerProps> = ({ folderId }) => {
 
       {/* Timer Panel */}
       {isTimerVisible && (
-        <div className="fixed top-4 right-4 bg-white rounded-xl shadow-lg border border-gray-200 p-6 w-80 z-40">
+        <div className="fixed top-4 right-[12rem] bg-white rounded-xl shadow-lg border border-gray-200 p-6 w-80 z-40">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-gray-900 flex items-center gap-2">
               <Timer className="w-5 h-5" />
