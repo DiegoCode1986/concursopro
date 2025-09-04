@@ -1,19 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co'
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-key'
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://xyzcompany.supabase.co'
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5emNvbXBhbnkiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTY0NTcwNzI5MywiZXhwIjoxOTYxMjgzMjkzfQ.example'
 
 // Validate URL format
-const isValidUrl = (url: string) => {
-  try {
-    new URL(url)
-    return true
-  } catch {
-    return false
-  }
-}
-
-if (!supabaseUrl || !supabaseAnonKey || !isValidUrl(supabaseUrl)) {
+if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
   console.warn('Supabase not configured. Please connect to Supabase using the "Connect to Supabase" button.')
 }
 
