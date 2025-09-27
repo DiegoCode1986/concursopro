@@ -6,9 +6,11 @@ export const exportQuestionsToPDF = async (questions: Question[], folder: Folder
   try {
     // Criar um elemento temporário para renderizar o conteúdo
     const tempDiv = document.createElement('div');
-    tempDiv.style.position = 'absolute';
-    tempDiv.style.left = '-9999px';
-    tempDiv.style.top = '-9999px';
+    tempDiv.style.position = 'fixed';
+    tempDiv.style.left = '0';
+    tempDiv.style.top = '0';
+    tempDiv.style.opacity = '0';
+    tempDiv.style.zIndex = '-1';
     tempDiv.style.width = '800px';
     tempDiv.style.padding = '40px';
     tempDiv.style.backgroundColor = 'white';
