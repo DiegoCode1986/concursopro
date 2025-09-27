@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Plus, Search, Filter, BookOpen, Target, BarChart3 } from 'lucide-react';
+import { ArrowLeft, Plus, Search, Filter, BookOpen, Target, BarChart3, Download } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Question } from '../../types';
 import { supabase } from '../../lib/supabase';
+import { exportQuestionsToPDF } from '../../utils/pdfExport';
 import InteractiveQuestionCard from './InteractiveQuestionCard';
 import QuestionForm from './QuestionForm';
 import StudyTimer from '../Timer/StudyTimer';
@@ -24,6 +25,7 @@ const QuestionsList: React.FC<QuestionsListProps> = ({ folderId, onBack }) => {
   const [filterType, setFilterType] = useState<'all' | 'multiple' | 'boolean'>('all');
   const [studyMode, setStudyMode] = useState<'practice' | 'review'>('practice');
   const [loading, setLoading] = useState(false);
+  const [exportingPDF, setExportingPDF] = useState(false);
 
   const folder = state.folders.find(f => f.id === folderId);
   const questions = state.questions.filter(q => q.folderId === folderId);
@@ -138,6 +140,23 @@ const QuestionsList: React.FC<QuestionsListProps> = ({ folderId, onBack }) => {
     }
   };
 
+  const handleExportPDF = async () => {
+    if (!folder || questions.length === 0) {
+      alert('Não há questões para exportar.');
+      return;
+    }
+
+    setExportingPDF(true);
+    try {
+      await exportQuestionsToPDF(questions, folder);
+    } catch (error: any) {
+      console.error('Erro ao exportar PDF:', error);
+      alert(error.message || 'Erro ao exportar PDF. Tente novamente.');
+    } finally {
+      setExportingPDF(false);
+    }
+  };
+
   const filteredQuestions = questions.filter(question => {
     const matchesSearch = question.title.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesFilter = filterType === 'all' || question.type === filterType;
@@ -201,6 +220,16 @@ const QuestionsList: React.FC<QuestionsListProps> = ({ folderId, onBack }) => {
               </div>
               
               <StudyTimer folderId={folderId} />
+              
+              <Button 
+                onClick={handleExportPDF}
+                variant="outline" 
+                icon={Download} 
+                size="sm"
+                disabled={exportingPDF || questions.length === 0}
+              >
+                {exportingPDF ? 'Gerando PDF...' : 'Exportar PDF'}
+              </Button>
               
               <Button 
                 onClick={() => setIsCreateModalOpen(true)} 
